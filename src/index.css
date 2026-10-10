@@ -39,7 +39,7 @@ body{margin:0;background:var(--bg);color:var(--text);
 .serif{font-family:var(--serif)}
 #app{display:flex;height:100dvh;overflow:hidden}
 /* ---------- sidebar ---------- */
-#sidebar{width:220px;flex:0 0 220px;background:var(--bg);border-right:1px solid var(--border);
+#sidebar{width:200px;flex:0 0 200px;background:var(--bg);border-right:1px solid var(--border);
   display:flex;flex-direction:column;z-index:60}
 .side-head{padding:18px 14px 8px;display:flex;flex-direction:column;gap:14px}
 .brand{display:flex;align-items:center;gap:10px;padding:0 6px}
@@ -198,7 +198,7 @@ body{margin:0;background:var(--bg);color:var(--text);
   letter-spacing:.01em;line-height:1.15;margin:0}
 .hero-mark{flex:0 0 auto}
 .hero-chips{margin:0}
-#hero #composer{width:100%;max-width:768px;padding:0}
+#hero #composer{width:100%;max-width:800px;padding:0}
 #hero .privacy{margin-top:10px}
 @media(max-width:860px){
   #hero{gap:20px;padding:16px 12px calc(20px + env(safe-area-inset-bottom))}
