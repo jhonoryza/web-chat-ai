@@ -82,7 +82,8 @@ body{margin:0;background:var(--bg);color:var(--text);
 .nav-item i{color:var(--muted);width:18px;text-align:center}
 #scrim{display:none}
 /* ---------- main ---------- */
-#main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+#main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg);
+  transition:margin-right .3s cubic-bezier(.32,.72,.28,1)}
 #topbar{display:flex;align-items:center;gap:4px;padding:10px 16px;z-index:5}
 .chat-title{flex:1;min-width:0;background:none;border:0;color:var(--muted);font:inherit;font-size:14px;
   font-weight:500;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -282,6 +283,9 @@ body.log-open #logPanel{transform:none}
 #logScrim{display:none}
 @media(max-width:860px){
   body.log-open #logScrim{display:block;position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:85}
+}
+@media(min-width:861px){
+  body.log-open #main{margin-right:min(430px,94vw)}
 }
 /* ---------- custom dropdown (shadcn-style) ---------- */
 .dd{position:relative;min-width:0}
@@ -679,16 +683,24 @@ function updateStreamUI(){
   $('#stopBtn').hidden=!streaming;
   $('#input').disabled=streaming;
 }
-function buildPayload(conv,model,extraSystem){
+function buildPayload(conv,model,searchCtx){
   const msgs=[];
   if(conv.system&&conv.system.trim())msgs.push({role:'system',content:conv.system.trim()});
-  if(extraSystem)msgs.push({role:'system',content:extraSystem});
   conv.messages.forEach(m=>{
     if(m.err)return;
     if(m.role!=='user'&&m.role!=='assistant')return;
     if(typeof m.content==='string'&&!m.content.trim())return;
     msgs.push({role:m.role,content:m.content});
   });
+  if(searchCtx){
+    for(let i=msgs.length-1;i>=0;i--){
+      if(msgs[i].role!=='user')continue;
+      const c=msgs[i].content;
+      if(typeof c==='string')msgs[i].content=searchCtx+'\n\n---\n\nPertanyaan user:\n'+c;
+      else msgs[i].content=[{type:'text',text:searchCtx+'\n\n---\n\nPertanyaan user:'},...c];
+      break;
+    }
+  }
   const body={model:model,messages:msgs,stream:true,stream_options:{include_usage:true},temperature:conv.temperature};
   if(conv.maxTokens>0)body.max_tokens=conv.maxTokens;
   return body;
@@ -764,11 +776,11 @@ async function tinyfishFetch(urls){
 }
 function buildSearchContext(query,results){
   const dateStr=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
-  let c='[Hasil pencarian web untuk "'+query+'" — tanggal '+dateStr+']\n';
+  let c='[Konteks pencarian web — query: "'+query+'" | tanggal: '+dateStr+']\n';
   results.slice(0,5).forEach((r,i)=>{
     c+='\n'+(i+1)+'. '+(r.title||'(tanpa judul)')+'\n   '+(r.url||'')+'\n   '+String(r.snippet||'').slice(0,300)+(r.date?' ('+r.date+')':'');
   });
-  c+='\n\nPENTING: data di atas adalah hasil pencarian web LIVE dari internet (tanggal '+dateStr+'), bukan dari training data. Gunakan jika relevan dengan pertanyaan. Sebutkan sumbernya (nama situs) setiap memakai info dari hasil pencarian. Jangan bilang kamu tidak bisa browsing — kamu baru saja menerima hasil browsing di atas.';
+  c+='\n\nInstruksi: data di atas adalah HASIL LIVE dari internet hari ini, bukan training data. Pakai untuk menjawab pertanyaan user di bawah bila relevan, dan sebutkan sumbernya (nama situs). Jangan bilang kamu tidak bisa browsing.';
   return c;
 }
 async function gatherWebContext(text){
