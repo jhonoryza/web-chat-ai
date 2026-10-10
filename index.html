@@ -204,9 +204,13 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .log-err{background:rgba(231,76,60,.15);color:#e74c3c}
 .log-stop{background:rgba(241,196,15,.18);color:#c99506}
 .log-meta{display:flex;gap:12px;margin-top:6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
-.log-detail{display:none;margin-top:8px;font-size:12.5px;background:var(--surface2);border-radius:8px;
-  padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+.log-detail{display:none;margin-top:8px}
 .log-row.open .log-detail{display:block}
+.log-sec{font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--muted);margin:8px 0 4px;text-transform:uppercase}
+.log-sec:first-child{margin-top:0}
+.log-pre{font-size:12px;background:var(--surface2);border-radius:8px;padding:8px 10px;
+  white-space:pre-wrap;word-break:break-word;margin:0 0 4px;max-height:220px;overflow-y:auto;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 /* ---------- toast ---------- */
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
   background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:999px;
@@ -607,10 +611,13 @@ async function sendMessage(){
   const paint=()=>{if(target){target.innerHTML='';target.appendChild(mdRender(acc+'▍'));}scrollBottom(false);};
   const t0=performance.now();
   let usage=null;
+  let rawReq='';
   try{
+    const payloadObj=buildPayload(cur,model);
+    rawReq=trunc(JSON.stringify(redactForLog(payloadObj),null,2));
     const res=await fetch(base+'/chat/completions',{
       method:'POST',headers:headers,signal:aborter.signal,
-      body:JSON.stringify(buildPayload(cur,model))
+      body:JSON.stringify(payloadObj)
     });
     if(!res.ok){
       let detail='';
@@ -638,14 +645,16 @@ async function sendMessage(){
       }
     }
     logReq({type:'chat',provider:prov.name,model:model,status:'ok',ms:performance.now()-t0,http:res.status,
-      tok:usage?{pt:usage.prompt_tokens||0,ct:usage.completion_tokens||0}:null});
+      tok:usage?{pt:usage.prompt_tokens||0,ct:usage.completion_tokens||0}:null,
+      req:rawReq,res:trunc(acc)});
   }catch(e){
     if(e&&e.name==='AbortError'){
-      logReq({type:'chat',provider:prov.name,model:model,status:'stopped',ms:performance.now()-t0});
+      logReq({type:'chat',provider:prov.name,model:model,status:'stopped',ms:performance.now()-t0,
+        req:rawReq,res:trunc(acc)});
       if(!acc)acc='(stopped)';
     }else if(e instanceof TypeError){
       logReq({type:'chat',provider:prov.name,model:model,status:'error',ms:performance.now()-t0,
-        err:'Network error — request never reached the provider (CORS or wrong base URL). '+String(e.message||'fetch failed')});
+        req:rawReq,err:'Network error — request never reached the provider (CORS or wrong base URL). '+String(e.message||'fetch failed')});
       am.err=true;
       am.content='**Network error** — the request never reached the provider.\n\n'
         +'This usually means the provider blocks browser requests (**CORS**) or the base URL is wrong.\n'
@@ -653,7 +662,7 @@ async function sendMessage(){
        +'`'+esc(e.message||'fetch failed')+'`';
     }else{
       logReq({type:'chat',provider:prov.name,model:model,status:'error',ms:performance.now()-t0,
-        err:String(e.message||e).slice(0,300)});
+        req:rawReq,err:String(e.message||e).slice(0,300)});
       am.err=true;
       am.content='**Request failed**\n\n`'+esc(e.message||String(e))+'`';
     }
@@ -697,20 +706,39 @@ function autogrow(){
 }
 /* ================= request log ================= */
 const LOG_MAX=200;
-const ReqLog=[]; /* newest first; metadata only — never message content */
+const LOG_BODY_MAX=6000;
+const ReqLog=[]; /* newest first; in-memory only, cleared on reload */
+function trunc(s,max){
+  s=String(s==null?'':s);max=max||LOG_BODY_MAX;
+  return s.length>max?s.slice(0,max)+'\n…[truncated, '+s.length+' chars total]':s;
+}
+function redactForLog(obj){
+  return JSON.parse(JSON.stringify(obj,function(k,v){
+    if(k==='url'&&typeof v==='string'&&v.indexOf('data:')===0)
+      return '[image ~'+Math.round(v.length*0.75/1024)+' KB — redacted]';
+    return v;
+  }));
+}
 function logReq(e){
-  ReqLog.unshift(Object.assign({ts:Date.now(),type:'chat',provider:'',model:'',status:'ok',ms:0,http:0,tok:null,count:null,err:''},e||{}));
+  ReqLog.unshift(Object.assign({ts:Date.now(),type:'chat',provider:'',model:'',status:'ok',ms:0,http:0,tok:null,count:null,req:'',res:'',err:''},e||{}));
   if(ReqLog.length>LOG_MAX)ReqLog.length=LOG_MAX;
 }
 function fmtMs(ms){return ms<1000?Math.round(ms)+' ms':(ms/1000).toFixed(1)+' s';}
 function fmtClock(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
 function openLog(){
-  const m=openModal('<i class="fa-solid fa-clipboard-list"></i> Request log','API calls made this session. Metadata only — your message content is never logged.');
+  const m=openModal('<i class="fa-solid fa-clipboard-list"></i> Request log','Raw request & response for every API call this session. Images are redacted; logs live only in memory and clear on reload.');
   const b=m.body;
   function pill(s){
     return s==='ok'?'<span class="log-pill log-ok">OK</span>'
       :s==='stopped'?'<span class="log-pill log-stop">STOPPED</span>'
       :'<span class="log-pill log-err">ERROR</span>';
+  }
+  function detailHTML(e){
+    let h='';
+    if(e.req)h+='<div class="log-sec">Raw request</div><pre class="log-pre">'+esc(e.req)+'</pre>';
+    if(e.res)h+='<div class="log-sec">Raw response</div><pre class="log-pre">'+esc(e.res)+'</pre>';
+    if(e.err)h+='<div class="log-sec">Error</div><pre class="log-pre">'+esc(e.err)+'</pre>';
+    return h?'<div class="log-detail">'+h+'</div>':'';
   }
   function draw(){
     b.innerHTML='';
@@ -721,7 +749,8 @@ function openLog(){
     }else{
       const list=document.createElement('div');list.className='log-list';
       ReqLog.forEach(e=>{
-        const row=document.createElement('div');row.className='log-row'+(e.err?' tap':'');
+        const det=detailHTML(e);
+        const row=document.createElement('div');row.className='log-row'+(det?' tap':'');
         const meta='<span>'+fmtMs(e.ms)+'</span>'
           +(e.http?'<span>HTTP '+e.http+'</span>':'')
           +(e.tok&&((e.tok.pt||0)+(e.tok.ct||0))?'<span>tokens ↑'+(e.tok.pt||0)+' ↓'+(e.tok.ct||0)+'</span>':'')
@@ -730,9 +759,8 @@ function openLog(){
           +'<span class="log-type">'+esc(String(e.type).toUpperCase())+'</span>'
           +'<span class="log-name">'+esc(e.provider+(e.model?' • '+e.model:''))+'</span>'
           +pill(e.status)+'</div>'
-          +'<div class="log-meta">'+meta+'</div>'
-          +(e.err?'<div class="log-detail">'+esc(e.err)+'</div>':'');
-        if(e.err)row.onclick=()=>row.classList.toggle('open');
+          +'<div class="log-meta">'+meta+'</div>'+det;
+        if(det)row.onclick=()=>row.classList.toggle('open');
         list.appendChild(row);
       });
       b.appendChild(list);
@@ -742,7 +770,7 @@ function openLog(){
     cp.onclick=()=>copyText(JSON.stringify(ReqLog.map(e=>({time:new Date(e.ts).toISOString(),type:e.type,
       provider:e.provider,model:e.model||undefined,status:e.status,latencyMs:Math.round(e.ms),
       http:e.http||undefined,tokens:e.tok||undefined,models:e.count!=null?e.count:undefined,
-      error:e.err||undefined})),null,2));
+      request:e.req||undefined,response:e.res||undefined,error:e.err||undefined})),null,2));
     const cl=document.createElement('button');cl.className='btn ghost';cl.innerHTML='<i class="fa-solid fa-trash"></i> Clear';
     cl.onclick=()=>{ReqLog.length=0;draw();toast('Log cleared');};
     const dn=document.createElement('button');dn.className='btn primary';dn.textContent='Done';dn.style.flex='2';
@@ -836,16 +864,18 @@ function providerForm(p,refresh){
     try{
       const h={};if(key)h['Authorization']='Bearer '+key;
       const r=await fetch(base+'/models',{headers:h});
+      const rawTxt=await r.text();
       if(!r.ok)throw new Error('HTTP '+r.status);
-      const j=await r.json();
+      const j=JSON.parse(rawTxt);
       const ids=((j&&j.data)||[]).map(x=>x.id).filter(Boolean).sort();
       if(!ids.length){st.textContent='No models returned.';return;}
       p.models=ids;drawChips(ids);
-      logReq({type:'models',provider:pname,status:'ok',ms:performance.now()-t0,http:r.status,count:ids.length});
+      logReq({type:'models',provider:pname,status:'ok',ms:performance.now()-t0,http:r.status,count:ids.length,
+        req:'GET '+base+'/models',res:trunc(rawTxt)});
       st.textContent='Got '+ids.length+' models ✓ — tap one to set it as default.';
     }catch(e){
       logReq({type:'models',provider:pname,status:'error',ms:performance.now()-t0,
-        err:String(e.message||e).slice(0,300)});
+        req:'GET '+base+'/models',err:String(e.message||e).slice(0,300)});
       st.textContent=e instanceof TypeError
         ?'Could not reach it — check the URL, or CORS may be blocking browser requests.'
         :' '+e.message;
