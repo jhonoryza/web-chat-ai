@@ -211,6 +211,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .log-pre{font-size:12px;background:var(--surface2);border-radius:8px;padding:8px 10px;
   white-space:pre-wrap;word-break:break-word;margin:0 0 4px;max-height:220px;overflow-y:auto;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.warn-note{display:none;font-size:12.5px;color:#e74c3c;background:rgba(231,76,60,.1);
+  border:1px solid rgba(231,76,60,.35);border-radius:10px;padding:8px 12px;margin-top:8px}
 /* ---------- toast ---------- */
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
   background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:999px;
@@ -604,7 +606,7 @@ async function sendMessage(){
   // ---- stream ----
   streaming=true;updateStreamUI();aborter=new AbortController();
   const prov=S.providers.find(x=>x.id===cur.providerId);
-  const base=(prov.baseURL||'').replace(/\/+$/,'');
+  const base=normalizeBaseURL(prov.baseURL);
   const headers={'Content-Type':'application/json'};
   if(prov.apiKey)headers['Authorization']='Bearer '+prov.apiKey;
   let acc='';
@@ -654,10 +656,12 @@ async function sendMessage(){
       if(!acc)acc='(stopped)';
     }else if(e instanceof TypeError){
       logReq({type:'chat',provider:prov.name,model:model,status:'error',ms:performance.now()-t0,
-        req:rawReq,err:'Network error — request never reached the provider (CORS or wrong base URL). '+String(e.message||'fetch failed')});
+        req:rawReq,err:'Network error — request never reached the provider. '+String(e.message||'fetch failed')});
       am.err=true;
       am.content='**Network error** — the request never reached the provider.\n\n'
-        +'This usually means the provider blocks browser requests (**CORS**) or the base URL is wrong.\n'
+        +(mixedBlocked(base)
+          ?'The base URL uses **http://** while this page is loaded over **https://** — browsers block that (mixed content).\n\nUse an **https://** endpoint instead.\n\n'
+          :'This usually means the provider blocks browser requests (**CORS**) or the base URL is wrong.\n')
         +'Check the base URL in Providers, and for local models (Ollama) start with `OLLAMA_ORIGINS=*`.\n\n'
        +'`'+esc(e.message||'fetch failed')+'`';
     }else{
@@ -705,6 +709,14 @@ function autogrow(){
   ta.style.height=Math.min(ta.scrollHeight,160)+'px';
 }
 /* ================= request log ================= */
+function normalizeBaseURL(u){
+  u=String(u||'').trim().replace(/\/+$/,'');
+  if(u&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(u))u='http://'+u;
+  return u;
+}
+function mixedBlocked(u){
+  return typeof location!=='undefined'&&location.protocol==='https:'&&/^http:\/\//i.test(u||'');
+}
 const LOG_MAX=200;
 const LOG_BODY_MAX=6000;
 const ReqLog=[]; /* newest first; in-memory only, cleared on reload */
@@ -831,7 +843,8 @@ function providerForm(p,refresh){
   const b=m.body;
   b.innerHTML=
     '<div class="field"><label>Name</label><input type="text" id="pfName" placeholder="e.g. DeepSeek" value="'+esc(p.name)+'"></div>'
-   +'<div class="field"><label>Base URL</label><input type="url" id="pfURL" placeholder="https://api.openai.com/v1" value="'+esc(p.baseURL)+'"></div>'
+   +'<div class="field"><label>Base URL</label><input type="url" id="pfURL" placeholder="https://api.openai.com/v1" value="'+esc(p.baseURL)+'">'
+   +'<div class="warn-note" id="pfMixedWarn"><b>Mixed content:</b> this page is served over HTTPS, so your browser will block requests to an <b>http://</b> URL. Use an <b>https://</b> endpoint instead.</div></div>'
    +'<div class="field"><label>API key <span style="font-weight:400">(stored only in this browser)</span></label>'
    +'<div class="pw-wrap"><input type="password" id="pfKey" placeholder="sk-…" value="'+esc(p.apiKey)+'">'
    +'<button type="button" id="pfShow" title="Show/hide"><i class="fa-solid fa-eye"></i></button></div></div>'
@@ -855,8 +868,11 @@ function providerForm(p,refresh){
     });
   }
   drawChips(p.models||[]);
+  const pfURL=$('#pfURL',b),pfMW=$('#pfMixedWarn',b);
+  const updMW=()=>{pfMW.style.display=mixedBlocked(normalizeBaseURL(pfURL.value))?'block':'none';};
+  pfURL.addEventListener('input',updMW);updMW();
   $('#pfFetch',b).onclick=async()=>{
-    const base=$('#pfURL',b).value.trim().replace(/\/+$/,''),key=$('#pfKey',b).value.trim();
+    const base=normalizeBaseURL($('#pfURL',b).value),key=$('#pfKey',b).value.trim();
     const pname=$('#pfName',b).value.trim()||'Provider';
     const st=$('#pfStatus',b);st.textContent='Fetching…';
     if(!base){st.textContent='Enter a base URL first.';return;}
@@ -877,14 +893,16 @@ function providerForm(p,refresh){
       logReq({type:'models',provider:pname,status:'error',ms:performance.now()-t0,
         req:'GET '+base+'/models',err:String(e.message||e).slice(0,300)});
       st.textContent=e instanceof TypeError
-        ?'Could not reach it — check the URL, or CORS may be blocking browser requests.'
+        ?(mixedBlocked(base)
+          ?'Blocked: this page is HTTPS but the URL is http:// (mixed content). Use an https:// endpoint.'
+          :'Could not reach it — check the URL, or CORS may be blocking browser requests.')
         :' '+e.message;
     }
   };
   $('#pfCancel',b).onclick=m.close;
   $('#pfSave',b).onclick=()=>{
     p.name=$('#pfName',b).value.trim()||'Provider';
-    p.baseURL=$('#pfURL',b).value.trim().replace(/\/+$/,'');
+    p.baseURL=normalizeBaseURL($('#pfURL',b).value);
     p.apiKey=$('#pfKey',b).value.trim();
     p.defaultModel=$('#pfModel',b).value.trim();
     if(!p.baseURL){toast('Base URL is required');return;}

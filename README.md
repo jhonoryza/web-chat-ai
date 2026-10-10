@@ -1,4 +1,4 @@
-# Web Chat AI
+# DeepSea
 
 A privacy-first AI chat client that runs entirely in your browser. Bring your own API key — no backend, no tracking, no data collection.
 
@@ -24,3 +24,5 @@ All API requests go directly from your browser to your chosen provider. API keys
 ## Provider notes
 
 Most cloud providers (OpenAI, DeepSeek, OpenRouter, Groq, Together, Mistral…) allow browser requests. For local models (Ollama/LM Studio), configure CORS first — e.g. `OLLAMA_ORIGINS=*` for Ollama.
+
+Two gotchas: always include the scheme in the base URL (`http://` or `https://` — the app prepends `http://` if you forget it), and a page served over HTTPS cannot call `http://` endpoints (browsers block it as mixed content) — use an `https://` endpoint instead.
