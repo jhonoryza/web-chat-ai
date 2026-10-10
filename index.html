@@ -258,6 +258,63 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .msg .bubble{max-width:92%}
   .composer-bar select{max-width:110px}
 }
+/* ---------- logs drawer (right sidebar) ---------- */
+#logPanel{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--bg2);
+  border-left:1px solid var(--border);z-index:90;transform:translateX(103%);
+  transition:transform .3s cubic-bezier(.32,.72,.28,1);display:flex;flex-direction:column;
+  box-shadow:var(--shadow)}
+body.log-open #logPanel{transform:none}
+.logp-head{display:flex;align-items:center;gap:10px;padding:14px 14px 12px 18px;border-bottom:1px solid var(--border)}
+.logp-head h3{margin:0;font-family:var(--serif);font-size:20px;font-weight:500;flex:1}
+.logp-head h3 i{color:var(--accent);margin-right:8px;font-size:17px}
+.logp-body{flex:1;overflow-y:auto;padding:14px 16px}
+.logp-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px}
+.logp-foot .btn{flex:1}
+#logScrim{display:none}
+@media(max-width:860px){
+  body.log-open #logScrim{display:block;position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:85}
+}
+/* ---------- custom dropdown (shadcn-style) ---------- */
+.dd{position:relative;min-width:0}
+.dd-native{display:none!important}
+.dd-trigger{display:flex;align-items:center;gap:6px;background:transparent;border:0;color:var(--muted);
+  font:inherit;font-size:13px;font-weight:600;padding:9px 8px;cursor:pointer;border-radius:9px;
+  max-width:160px;white-space:nowrap;transition:background .15s,color .15s}
+.dd-trigger:hover:not(:disabled){color:var(--text);background:var(--surface2)}
+.dd-trigger:disabled{opacity:.45;cursor:default}
+.dd-trigger .lbl{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dd-trigger .chev{font-size:9px;color:var(--faint);transition:transform .15s;flex:0 0 auto}
+.dd.open .dd-trigger .chev{transform:rotate(180deg)}
+.dd-panel{position:fixed;z-index:130;min-width:210px;max-width:290px;max-height:290px;overflow-y:auto;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:6px;
+  box-shadow:var(--shadow);animation:ddin .14s ease-out}
+@keyframes ddin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.dd-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--text);
+  font:inherit;font-size:13.5px;padding:9px 10px;border-radius:9px;cursor:pointer;text-align:left}
+.dd-item:hover{background:var(--surface2)}
+.dd-item .tick{width:16px;flex:0 0 16px;color:var(--accent);font-size:11px;visibility:hidden;text-align:center}
+.dd-item.sel .tick{visibility:visible}
+.dd-item .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-empty{padding:14px;font-size:13px;color:var(--muted);text-align:center}
+/* ---------- confirm / prompt dialogs ---------- */
+#dialogRoot:empty{display:none}
+.dialog-scrim{position:fixed;inset:0;background:rgba(10,8,6,.55);backdrop-filter:blur(3px);z-index:120;
+  display:flex;align-items:center;justify-content:center;padding:20px;animation:fadein .15s ease-out}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.dialog{background:var(--bg2);border:1px solid var(--border);border-radius:18px;width:100%;max-width:400px;
+  padding:22px;box-shadow:var(--shadow);animation:dpop .18s ease-out}
+@keyframes dpop{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+.dialog h3{margin:0 0 8px;font-family:var(--serif);font-size:21px;font-weight:500}
+.dialog p.msg{margin:0 0 18px;font-size:14px;color:var(--muted);white-space:pre-line;line-height:1.55}
+.dialog .field{margin-bottom:18px}
+.dialog .field input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);
+  border-radius:11px;padding:11px 13px;font:inherit;font-size:15px;outline:none}
+.dialog .field input:focus{border-color:var(--accent)}
+.dialog-btns{display:flex;gap:8px;justify-content:flex-end}
+.dialog-btns .btn{width:auto;min-width:96px}
+.btn.danger-solid{background:#c0453a;border:0;color:#fff}
+.btn.danger-solid:hover{background:#a93a31}
+
 </style>
 </head>
 <body>
@@ -310,6 +367,19 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <input type="file" id="fileInput" accept="image/*" multiple hidden/>
 <input type="file" id="importInput" accept="application/json,.json" hidden/>
 <div id="toast"></div>
+<div id="logScrim"></div>
+<aside id="logPanel" aria-label="Request log">
+  <div class="logp-head">
+    <h3><i class="fa-solid fa-clipboard-list"></i>Request log</h3>
+    <button id="logClose" class="tool-btn" aria-label="Close log"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="logp-body" id="logPanelBody"></div>
+  <div class="logp-foot">
+    <button id="logCopy" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+    <button id="logClear" class="btn"><i class="fa-solid fa-trash"></i> Clear</button>
+  </div>
+</aside>
+<div id="dialogRoot"></div>
 <script>
 'use strict';
 /* ================= utils ================= */
@@ -561,6 +631,7 @@ function renderChatBar(){
   if(curModel)ms.value=curModel;
   const co=document.createElement('option');co.value='__custom';co.textContent='Custom model ID…';ms.appendChild(co);
   $('#chatTitle').textContent=cur?(cur.title||'New chat'):'New chat';
+  if(ps._ddSync)ps._ddSync();if(ms._ddSync)ms._ddSync();
 }
 function applyTheme(){
   document.documentElement.dataset.theme=S.theme;
@@ -578,7 +649,7 @@ function loadConversation(id){
 }
 async function deleteConversation(id){
   const c=convs.find(x=>x.id===id);
-  if(!confirm('Delete "'+(c?c.title:'this chat')+'"? This cannot be undone.'))return;
+  if(!await uiConfirm({title:'Delete chat',message:'Delete "'+(c?c.title:'this chat')+'"? This cannot be undone.'}))return;
   await ConvDB.del(id);
   convs=convs.filter(x=>x.id!==id);
   if(cur&&cur.id===id){cur=convs[0]||null;S.activeConvId=cur?cur.id:null;saveSettings();}
@@ -586,7 +657,7 @@ async function deleteConversation(id){
 }
 async function clearAllConversations(){
   if(!convs.length){toast('Nothing to clear');return;}
-  if(!confirm('Delete ALL '+convs.length+' conversations? This cannot be undone.'))return;
+  if(!await uiConfirm({title:'Delete all chats',message:'Delete ALL '+convs.length+' conversations? This cannot be undone.'}))return;
   await ConvDB.clear();convs=[];cur=null;S.activeConvId=null;saveSettings();
   renderAll();toast('All chats cleared');
 }
@@ -623,7 +694,7 @@ async function sendMessage(){
   S.activeProviderId=cur.providerId;saveSettings();
   let model=$('#modelSel').value;
   if(model==='__custom'){
-    const mid=prompt('Model ID:','');
+    const mid=await uiPrompt({title:'Custom model',label:'Model ID',placeholder:'e.g. deepseek-chat',okText:'Use model'});
     if(!mid||!mid.trim())return;
     model=mid.trim();
     const o=document.createElement('option');o.value=model;o.textContent=model+' ✓';
@@ -778,64 +849,163 @@ function redactForLog(obj){
 function logReq(e){
   ReqLog.unshift(Object.assign({ts:Date.now(),type:'chat',provider:'',model:'',status:'ok',ms:0,http:0,tok:null,count:null,req:'',res:'',raw:'',err:''},e||{}));
   if(ReqLog.length>LOG_MAX)ReqLog.length=LOG_MAX;
+  refreshLogIfOpen();
 }
 function fmtMs(ms){return ms<1000?Math.round(ms)+' ms':(ms/1000).toFixed(1)+' s';}
 function fmtClock(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
-function openLog(){
-  const m=openModal('<i class="fa-solid fa-clipboard-list"></i> Request log','Raw request & response for every API call this session. Images are redacted; logs live only in memory and clear on reload.');
-  const b=m.body;
-  function pill(s){
-    return s==='ok'?'<span class="log-pill log-ok">OK</span>'
-      :s==='stopped'?'<span class="log-pill log-stop">STOPPED</span>'
-      :'<span class="log-pill log-err">ERROR</span>';
+/* ================= confirm / prompt dialogs (no native browser dialogs) ================= */
+function uiConfirm(o){
+  return new Promise(resolve=>{
+    const root=$('#dialogRoot');
+    const title=o.title||'Are you sure?', message=o.message||'',
+      okText=o.okText||'Delete', cancelText=o.cancelText||'Cancel',
+      danger=o.danger!==false;
+    root.innerHTML=
+      '<div class="dialog-scrim"><div class="dialog" role="alertdialog" aria-modal="true">'
+      +'<h3>'+esc(title)+'</h3><p class="msg">'+esc(message)+'</p>'
+      +'<div class="dialog-btns"><button class="btn d-cancel">'+esc(cancelText)+'</button>'
+      +'<button class="btn '+(danger?'danger-solid':'primary')+' d-ok">'+esc(okText)+'</button>'
+      +'</div></div></div>';
+    const done=v=>{root.innerHTML='';document.removeEventListener('keydown',onKey);resolve(v);};
+    const onKey=e=>{if(e.key==='Escape')done(false);};
+    root.querySelector('.d-cancel').onclick=()=>done(false);
+    root.querySelector('.d-ok').onclick=()=>done(true);
+    root.querySelector('.dialog-scrim').addEventListener('mousedown',e=>{
+      if(e.target.classList.contains('dialog-scrim'))done(false);});
+    document.addEventListener('keydown',onKey);
+    setTimeout(()=>{const b=root.querySelector('.d-ok');if(b)b.focus();},30);
+  });
+}
+function uiPrompt(o){
+  return new Promise(resolve=>{
+    const root=$('#dialogRoot');
+    const title=o.title||'Input', label=o.label||'', value=o.value||'',
+      placeholder=o.placeholder||'', okText=o.okText||'Save', cancelText=o.cancelText||'Cancel';
+    root.innerHTML=
+      '<div class="dialog-scrim"><div class="dialog" role="dialog" aria-modal="true">'
+      +'<h3>'+esc(title)+'</h3>'
+      +'<div class="field">'+(label?'<label>'+esc(label)+'</label>':'')
+      +'<input type="text" id="dlgInput" autocomplete="off" spellcheck="false"></div>'
+      +'<div class="dialog-btns"><button class="btn d-cancel">'+esc(cancelText)+'</button>'
+      +'<button class="btn primary d-ok">'+esc(okText)+'</button></div></div></div>';
+    const input=root.querySelector('#dlgInput');
+    input.value=value;input.placeholder=placeholder;
+    const done=v=>{root.innerHTML='';document.removeEventListener('keydown',onKey);resolve(v);};
+    const onKey=e=>{if(e.key==='Escape')done(null);};
+    const ok=()=>done(input.value);
+    root.querySelector('.d-cancel').onclick=()=>done(null);
+    root.querySelector('.d-ok').onclick=ok;
+    input.addEventListener('keydown',e=>{if(e.key==='Enter')ok();e.stopPropagation();});
+    root.querySelector('.dialog-scrim').addEventListener('mousedown',e=>{
+      if(e.target.classList.contains('dialog-scrim'))done(null);});
+    document.addEventListener('keydown',onKey);
+    setTimeout(()=>{input.focus();input.select();},30);
+  });
+}
+/* ================= custom dropdown (shadcn-style, mirrors a native select) ================= */
+function attachDropdown(sel){
+  const wrap=document.createElement('div');wrap.className='dd';
+  sel.parentNode.insertBefore(wrap,sel);wrap.appendChild(sel);
+  sel.classList.add('dd-native');
+  const btn=document.createElement('button');btn.type='button';btn.className='dd-trigger';
+  btn.setAttribute('aria-haspopup','listbox');
+  if(sel.getAttribute('aria-label'))btn.setAttribute('aria-label',sel.getAttribute('aria-label'));
+  const lbl=document.createElement('span');lbl.className='lbl';
+  const chev=document.createElement('i');chev.className='fa-solid fa-chevron-down chev';
+  btn.appendChild(lbl);btn.appendChild(chev);
+  wrap.appendChild(btn);
+  let panel=null;
+  const curLabel=()=>{const o=sel.options[sel.selectedIndex];return o?o.textContent:'';};
+  const syncBtn=()=>{lbl.textContent=curLabel()||'—';btn.disabled=sel.disabled;btn.title=curLabel();};
+  const close=()=>{if(!panel)return;panel.remove();panel=null;wrap.classList.remove('open');
+    document.removeEventListener('mousedown',onDoc);};
+  const onDoc=e=>{if(panel&&!panel.contains(e.target)&&!wrap.contains(e.target))close();};
+  const choose=o=>{close();if(sel.value!==o.value){sel.value=o.value;
+    sel.dispatchEvent(new Event('change',{bubbles:true}));}syncBtn();};
+  function open(){
+    if(sel.disabled||panel)return;
+    wrap.classList.add('open');
+    panel=document.createElement('div');panel.className='dd-panel';panel.setAttribute('role','listbox');
+    const opts=[...sel.options];
+    if(!opts.length)panel.innerHTML='<div class="dd-empty">No options</div>';
+    opts.forEach(o=>{
+      const it=document.createElement('button');it.type='button';
+      it.className='dd-item'+(o.value===sel.value?' sel':'');it.setAttribute('role','option');
+      const tk=document.createElement('span');tk.className='tick';
+      tk.innerHTML='<i class="fa-solid fa-check"></i>';
+      const tx=document.createElement('span');tx.className='t';tx.textContent=o.textContent;
+      it.appendChild(tk);it.appendChild(tx);
+      it.onclick=()=>choose(o);
+      panel.appendChild(it);
+    });
+    document.body.appendChild(panel);
+    const r=btn.getBoundingClientRect();
+    panel.style.visibility='hidden';
+    const pw=Math.max(210,Math.min(290,r.width+120));
+    panel.style.width=pw+'px';
+    const ph=panel.offsetHeight;
+    let top=r.top-ph-8;
+    if(top<8)top=r.bottom+8;
+    let left=Math.max(8,Math.min(r.right-pw,window.innerWidth-pw-8));
+    panel.style.left=left+'px';panel.style.top=Math.max(8,top)+'px';
+    panel.style.visibility='';
+    document.addEventListener('mousedown',onDoc);
+    const s=panel.querySelector('.dd-item.sel');if(s)s.scrollIntoView({block:'nearest'});
   }
-  function detailHTML(e){
+  btn.addEventListener('click',e=>{e.stopPropagation();panel?close():open();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  new MutationObserver(()=>{syncBtn();if(panel){close();open();}}).observe(sel,{childList:true,attributes:true,attributeFilter:['disabled']});
+  sel.addEventListener('change',syncBtn);
+  sel._ddSync=syncBtn;
+  syncBtn();
+}
+/* ================= request log drawer ================= */
+function drawLog(box){
+  const pill=s=>s==='ok'?'<span class="log-pill log-ok">OK</span>'
+    :s==='stopped'?'<span class="log-pill log-stop">STOPPED</span>'
+    :'<span class="log-pill log-err">ERROR</span>';
+  const detailHTML=e=>{
     let h='';
     if(e.req)h+='<div class="log-sec">Raw request</div><pre class="log-pre">'+esc(e.req)+'</pre>';
     if(e.res)h+='<div class="log-sec">Raw response</div><pre class="log-pre">'+esc(e.res)+'</pre>';
     if(e.raw)h+='<div class="log-sec">Raw stream (sample)</div><pre class="log-pre">'+esc(e.raw)+'</pre>';
     if(e.err)h+='<div class="log-sec">Error</div><pre class="log-pre">'+esc(e.err)+'</pre>';
     return h?'<div class="log-detail">'+h+'</div>':'';
+  };
+  box.innerHTML='';
+  if(!ReqLog.length){
+    const p=document.createElement('p');p.className='sub';
+    p.textContent='No requests yet. Send a message or fetch models to see activity here.';
+    box.appendChild(p);
+  }else{
+    const list=document.createElement('div');list.className='log-list';
+    ReqLog.forEach(e=>{
+      const det=detailHTML(e);
+      const row=document.createElement('div');row.className='log-row'+(det?' tap':'');
+      const meta='<span>'+fmtMs(e.ms)+'</span>'
+        +(e.http?'<span>HTTP '+e.http+'</span>':'')
+        +(e.tok&&((e.tok.pt||0)+(e.tok.ct||0))?'<span>tokens ↑'+(e.tok.pt||0)+' ↓'+(e.tok.ct||0)+'</span>':'')
+        +(e.count!=null?'<span>'+e.count+' models</span>':'');
+      row.innerHTML='<div class="log-top"><span class="log-time">'+fmtClock(e.ts)+'</span>'
+        +'<span class="log-type">'+esc(String(e.type).toUpperCase())+'</span>'
+        +'<span class="log-name">'+esc(e.provider+(e.model?' • '+e.model:''))+'</span>'
+        +pill(e.status)+'</div>'
+        +'<div class="log-meta">'+meta+'</div>'+det;
+      if(det)row.onclick=()=>row.classList.toggle('open');
+      list.appendChild(row);
+    });
+    box.appendChild(list);
   }
-  function draw(){
-    b.innerHTML='';
-    if(!ReqLog.length){
-      const p=document.createElement('p');p.className='sub';
-      p.textContent='No requests yet. Send a message or fetch models to see activity here.';
-      b.appendChild(p);
-    }else{
-      const list=document.createElement('div');list.className='log-list';
-      ReqLog.forEach(e=>{
-        const det=detailHTML(e);
-        const row=document.createElement('div');row.className='log-row'+(det?' tap':'');
-        const meta='<span>'+fmtMs(e.ms)+'</span>'
-          +(e.http?'<span>HTTP '+e.http+'</span>':'')
-          +(e.tok&&((e.tok.pt||0)+(e.tok.ct||0))?'<span>tokens ↑'+(e.tok.pt||0)+' ↓'+(e.tok.ct||0)+'</span>':'')
-          +(e.count!=null?'<span>'+e.count+' models</span>':'');
-        row.innerHTML='<div class="log-top"><span class="log-time">'+fmtClock(e.ts)+'</span>'
-          +'<span class="log-type">'+esc(String(e.type).toUpperCase())+'</span>'
-          +'<span class="log-name">'+esc(e.provider+(e.model?' • '+e.model:''))+'</span>'
-          +pill(e.status)+'</div>'
-          +'<div class="log-meta">'+meta+'</div>'+det;
-        if(det)row.onclick=()=>row.classList.toggle('open');
-        list.appendChild(row);
-      });
-      b.appendChild(list);
-    }
-    const br=document.createElement('div');br.className='btn-row';
-    const cp=document.createElement('button');cp.className='btn ghost';cp.innerHTML='<i class="fa-solid fa-copy"></i> Copy';
-    cp.onclick=()=>copyText(JSON.stringify(ReqLog.map(e=>({time:new Date(e.ts).toISOString(),type:e.type,
-      provider:e.provider,model:e.model||undefined,status:e.status,latencyMs:Math.round(e.ms),
-      http:e.http||undefined,tokens:e.tok||undefined,models:e.count!=null?e.count:undefined,
-      request:e.req||undefined,response:e.res||undefined,rawStream:e.raw||undefined,error:e.err||undefined})),null,2));
-    const cl=document.createElement('button');cl.className='btn ghost';cl.innerHTML='<i class="fa-solid fa-trash"></i> Clear';
-    cl.onclick=()=>{ReqLog.length=0;draw();toast('Log cleared');};
-    const dn=document.createElement('button');dn.className='btn primary';dn.textContent='Done';dn.style.flex='2';
-    dn.onclick=m.close;
-    br.appendChild(cp);br.appendChild(cl);br.appendChild(dn);b.appendChild(br);
-  }
-  draw();
 }
+function openLog(){
+  drawLog($('#logPanelBody'));
+  document.body.classList.add('log-open');
+}
+function closeLog(){document.body.classList.remove('log-open');}
+function refreshLogIfOpen(){
+  if(document.body.classList.contains('log-open'))drawLog($('#logPanelBody'));
+}
+
 /* ================= modal helper ================= */
 function openModal(title,sub,bodyHTML){
   const root=$('#modalRoot');
@@ -866,8 +1036,8 @@ function openProviders(){
       const eb=document.createElement('button');eb.className='mini-btn';eb.textContent='Edit';
       eb.onclick=()=>providerForm(p,draw);row.appendChild(eb);
       const db=document.createElement('button');db.className='mini-btn';db.innerHTML='<i class="fa-solid fa-trash"></i>';
-      db.onclick=()=>{
-        if(!confirm('Delete provider "'+p.name+'"?'))return;
+      db.onclick=async()=>{
+        if(!await uiConfirm({title:'Delete provider',message:'Delete provider "'+p.name+'"?'}))return;
         S.providers=S.providers.filter(x=>x.id!==p.id);
         if(S.activeProviderId===p.id)S.activeProviderId=S.providers[0]?S.providers[0].id:null;
         saveSettings();draw();renderChatBar();
@@ -1017,7 +1187,7 @@ function importJSON(file){
     try{
       const d=JSON.parse(r.result);
       if(!d||d.app!=='web-chat-ai'||!Array.isArray(d.conversations))throw new Error('bad file');
-      if(!confirm('Replace everything in this browser with this backup?\n('+d.conversations.length+' chats, '+((d.settings&&d.settings.providers)||[]).length+' providers)'))return;
+      if(!await uiConfirm({title:'Restore backup',okText:'Restore',danger:false,message:'Replace everything in this browser with this backup?\n('+d.conversations.length+' chats, '+((d.settings&&d.settings.providers)||[]).length+' providers)'}))return;
       await ConvDB.clear();
       for(const c of d.conversations)await ConvDB.put(c);
       convs=d.conversations.slice().sort((a,b2)=>b2.updatedAt-a.updatedAt);
@@ -1039,9 +1209,9 @@ function wireEvents(){
   $('#scrim').onclick=()=>document.body.classList.remove('nav-open');
   $('#newChatBtn').onclick=()=>{newConversation();document.body.classList.remove('nav-open');};
   $('#themeBtn').onclick=()=>{S.theme=S.theme==='dark'?'light':'dark';saveSettings();applyTheme();};
-  $('#chatTitle').onclick=()=>{
+  $('#chatTitle').onclick=async()=>{
     if(!cur)return;
-    const t=prompt('Rename chat:',cur.title||'');
+    const t=await uiPrompt({title:'Rename chat',value:cur.title||'',placeholder:'Chat title',okText:'Rename'});
     if(t&&t.trim()){cur.title=t.trim().slice(0,80);persist();renderSidebar();renderChatBar();}
   };
   $('#provSel').onchange=e=>{
@@ -1051,9 +1221,9 @@ function wireEvents(){
       persist();}
     renderChatBar();
   };
-  $('#modelSel').onchange=e=>{
+  $('#modelSel').onchange=async e=>{
     if(e.target.value==='__custom'){
-      const mid=prompt('Model ID:','');
+      const mid=await uiPrompt({title:'Custom model',label:'Model ID',placeholder:'e.g. deepseek-chat',okText:'Use model'});
       if(mid&&mid.trim()){
         const o=document.createElement('option');o.value=mid.trim();o.textContent=mid.trim()+' ✓';
         e.target.insertBefore(o,e.target.lastChild);e.target.value=mid.trim();
@@ -1062,6 +1232,14 @@ function wireEvents(){
     if(cur){cur.model=e.target.value;persist();}
   };
   $('#convCfgBtn').onclick=openConvSettings;
+  attachDropdown($('#provSel'));attachDropdown($('#modelSel'));
+  $('#logClose').onclick=closeLog;
+  $('#logScrim').onclick=closeLog;
+  $('#logCopy').onclick=()=>copyText(JSON.stringify(ReqLog.map(e=>({time:new Date(e.ts).toISOString(),type:e.type,
+    provider:e.provider,model:e.model||undefined,status:e.status,latencyMs:Math.round(e.ms),
+    http:e.http||undefined,tokens:e.tok||undefined,models:e.count!=null?e.count:undefined,
+    request:e.req||undefined,response:e.res||undefined,rawStream:e.raw||undefined,error:e.err||undefined})),null,2));
+  $('#logClear').onclick=()=>{ReqLog.length=0;drawLog($('#logPanelBody'));toast('Log cleared');};
   $('#sendBtn').onclick=sendMessage;
   $('#stopBtn').onclick=stopStream;
   $('#attachBtn').onclick=()=>$('#fileInput').click();
@@ -1078,7 +1256,7 @@ function wireEvents(){
     if(e.target.files.length)importJSON(e.target.files[0]);
     e.target.value='';
   };
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#modalRoot').innerHTML='';});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#modalRoot').innerHTML='';closeLog();}});
 }
 (async function init(){
   loadSettings();
