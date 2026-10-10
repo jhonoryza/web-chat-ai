@@ -1,28 +1,26 @@
-# DeepSea
+# DeepSea (React rewrite)
 
-A privacy-first AI chat client that runs entirely in your browser. Bring your own API key — no backend, no tracking, no data collection.
+A privacy-first AI chat client: bring your own API key, everything stays in your browser.
+This is a React + Vite + Tailwind CSS + shadcn-style (Radix primitives) rewrite of the
+legacy single-file `web-chat-ai` app.
 
-**Live site:** https://deepsea.labkita.my.id/
+## Dev
 
-## Features
+```bash
+npm ci
+npm run dev      # local dev server
+npm run build    # tsc -b && vite build -> dist/
+npm run preview  # serve the production build locally
+```
 
-- Multiple custom providers (name, base URL, API key) — any OpenAI-compatible API
-- Fetch models from `GET {baseURL}/models`, or type any model ID manually
-- Streaming chat responses with a stop button
-- Image attachments (vision) — resized client-side before sending
-- Conversations saved in your browser (IndexedDB, localStorage fallback)
-- Markdown rendering with code blocks + per-message copy buttons
-- Dark mode by default, light mode toggle
-- Mobile-first, app-like layout on phones
-- Backup & restore everything as one JSON file
-- Per-chat settings: system prompt, temperature, max tokens
+## Deploy
 
-## Privacy
+Push to `main` → the GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and
+deploys to GitHub Pages automatically. `public/CNAME` pins the custom domain
+`deepsea.labkita.my.id`.
 
-All API requests go directly from your browser to your chosen provider. API keys and chat history never leave your device except to the provider's API. There is no server, no analytics, no account.
+## Migration note
 
-## Provider notes
-
-Most cloud providers (OpenAI, DeepSeek, OpenRouter, Groq, Together, Mistral…) allow browser requests. For local models (Ollama/LM Studio), configure CORS first — e.g. `OLLAMA_ORIGINS=*` for Ollama.
-
-Two gotchas: always include the scheme in the base URL (`http://` or `https://` — the app prepends `http://` if you forget it), and a page served over HTTPS cannot call `http://` endpoints (browsers block it as mixed content) — use an `https://` endpoint instead.
+The repo previously served a legacy single-file `index.html` via classic GitHub Pages
+(branch-based). To go live with this rewrite, set the repo **Settings → Pages → Source**
+to **GitHub Actions** once; the workflow then handles every deploy from `main`.
