@@ -122,9 +122,9 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
 .composer-row{display:flex;gap:6px;align-items:flex-end;background:var(--surface);
   border:1.5px solid var(--border);border-radius:22px;padding:8px;transition:border-color .15s,box-shadow .15s}
 .composer-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
-#input{flex:1;resize:none;min-height:48px;max-height:160px;border:0;border-radius:0;background:transparent;
+#input{flex:1;resize:none;min-height:48px;max-height:160px;border:0;outline:none;border-radius:0;background:transparent;
   line-height:1.45;font-size:16px;padding:12px 6px}
-#input:focus{border-color:transparent}
+#input:focus{outline:none}
 .icon-btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:12px;
   width:44px;height:44px;font-size:19px;cursor:pointer;flex:0 0 44px;display:grid;place-items:center;
   transition:transform .1s,background .15s,border-color .15s}
