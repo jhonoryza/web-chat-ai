@@ -14,7 +14,9 @@ const defaultSettings: Settings = {
   activeProviderId: null,
   activeConvId: null,
   tinyfishKey: '',
-  webSearch: false,
+  webSearch: true,
+  searchProvider: 'searxng',
+  searxngUrl: 'https://sxng.labkita.my.id',
 };
 
 function loadInitialSettings(): Settings {
@@ -52,6 +54,8 @@ export interface State {
   setActiveProviderId: (id: string | null) => void;
   setTinyfishKey: (k: string) => void;
   setWebSearch: (b: boolean) => void;
+  setSearchProvider: (p: 'tinyfish' | 'searxng') => void;
+  setSearxngUrl: (u: string) => void;
   newConversation: () => void;
   loadConversation: (id: string) => void;
   deleteConversation: (id: string) => Promise<void>;
@@ -163,6 +167,8 @@ export const useStore = create<State>()((set, get) => {
     setActiveProviderId: (id) => set((s) => ({ settings: { ...s.settings, activeProviderId: id } })),
     setTinyfishKey: (k) => set((s) => ({ settings: { ...s.settings, tinyfishKey: k } })),
     setWebSearch: (b) => set((s) => ({ settings: { ...s.settings, webSearch: b } })),
+    setSearchProvider: (p) => set((s) => ({ settings: { ...s.settings, searchProvider: p } })),
+    setSearxngUrl: (u) => set((s) => ({ settings: { ...s.settings, searxngUrl: u } })),
 
     newConversation: () => {
       const st = get().settings;

@@ -2,6 +2,7 @@ import { useStore, getActiveConversation, getActiveProvider } from './store';
 import type { ChatMessage, ContentPart } from './types';
 import { normalizeBaseURL, mixedBlocked, buildPayload, sendChatStream, redactForLog } from './api';
 import { gatherWebContext, TinyfishError } from './tinyfish';
+import { gatherSearxngContext, DEFAULT_SEARXNG_URL } from './searxng';
 import { trunc } from './utils';
 import { toast, promptDialog, promptTinyFishKey } from '../components/dialogs';
 
@@ -81,9 +82,27 @@ export async function sendMessage(): Promise<void> {
   const aborter = new AbortController();
   st.setAborter(aborter);
 
-  // ---- optional web search (TinyFish) ----
+  // ---- optional web search (TinyFish / SearXNG) ----
   let searchCtx = '';
-  if (useStore.getState().settings.webSearch) {
+  const wss = useStore.getState().settings;
+  if (wss.webSearch) {
+    if ((wss.searchProvider || 'tinyfish') === 'searxng') {
+      const sxBase = (wss.searxngUrl || DEFAULT_SEARXNG_URL).replace(/\/+$/, '');
+      try {
+        searchCtx = await gatherSearxngContext(text, sxBase, wss.tinyfishKey);
+      } catch (e) {
+        const m = String((e as Error)?.message ?? e).slice(0, 200);
+        useStore.getState().log({
+          type: 'web-search',
+          provider: 'SearXNG',
+          model: 'search',
+          status: 'error',
+          err: m,
+        });
+        toast('Web search gagal: ' + m);
+        searchCtx = searchFailedNote(m);
+      }
+    } else {
     let key = useStore.getState().settings.tinyfishKey;
     if (!key) {
       const k = await promptTinyFishKey();
@@ -139,6 +158,7 @@ export async function sendMessage(): Promise<void> {
         toast('Web search gagal, lanjut tanpa search');
         searchCtx = searchFailedNote(m3);
       }
+    }
     }
   }
 

@@ -38,6 +38,8 @@ export interface Settings {
   activeConvId: string | null;
   tinyfishKey: string;
   webSearch: boolean;
+  searchProvider: 'tinyfish' | 'searxng';
+  searxngUrl: string;
 }
 
 export type LogStatus = 'ok' | 'error' | 'stopped';
