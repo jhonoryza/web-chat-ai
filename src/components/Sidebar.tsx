@@ -60,7 +60,10 @@ export function Sidebar() {
             <span>New chat</span>
           </button>
         </div>
-        <div className="side-sec">Chats</div>
+        <div className="side-sec">
+          <span>Chats and tasks</span>
+          <i className="fa-solid fa-sliders" />
+        </div>
         <div className="conv-list">
           {conversations.length === 0 ? (
             <div

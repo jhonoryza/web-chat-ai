@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { useStore, getActiveConversation } from "../lib/store";
 import { renderMarkdown, delegateCopyClicks } from "../lib/markdown";
 import { MASCOT_DATA_URI } from "../lib/assets";
-import { timeGreeting } from "../lib/utils";
 import type { ChatMessage } from "../lib/types";
 import { copyText } from "./dialogs";
 
@@ -71,19 +70,11 @@ function MessageView({ m, cursor }: { m: ChatMessage; cursor: boolean }) {
   );
 }
 
-const CHIPS = [
-  { icon: "fa-pen", label: "Write", prompt: "Help me write " },
-  { icon: "fa-code", label: "Code", prompt: "Write code that " },
-  { icon: "fa-list-ul", label: "Summarize", prompt: "Summarize this:\n" },
-  { icon: "fa-lightbulb", label: "Brainstorm", prompt: "Brainstorm ideas for " },
-];
-
 export function ChatView() {
   const conv = useStore(getActiveConversation);
   const providers = useStore((s) => s.settings.providers);
   const streaming = useStore((s) => s.streaming);
   const openModal = useStore((s) => s.openModal);
-  const setComposerDraft = useStore((s) => s.setComposerDraft);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -125,13 +116,19 @@ export function ChatView() {
     if (nearBottom.current) el.scrollTop = el.scrollHeight;
   });
 
-  const focusComposer = () => {
-    document.getElementById("composer-input")?.focus();
-  };
 
-  let body: ReactNode;
-  if (!conv || messages.length === 0) {
-    if (providers.length === 0) {
+  let body: ReactNode = null;
+  // Note: when providers exist and there are no messages, <App/> renders
+  // <Hero/> instead of <ChatView/>, so only the no-provider onboarding lives here.
+  if (messages.length > 0) {
+    body = messages.map((m, i) => (
+      <MessageView
+        key={i}
+        m={m}
+        cursor={streaming && i === messages.length - 1 && m.role === "assistant" && !m.err}
+      />
+    ));
+  } else if (providers.length === 0) {
       body = (
         <div className="empty">
           <img
@@ -176,39 +173,6 @@ export function ChatView() {
           </div>
         </div>
       );
-    } else {
-      body = (
-        <div className="empty">
-          <div className="greet">
-            Good {timeGreeting()}, fajar
-          </div>
-          <p className="greet-sub">Pick a provider &amp; model below, then say hi.</p>
-          <div className="chips">
-            {CHIPS.map((c) => (
-              <button
-                key={c.label}
-                className="chip"
-                onClick={() => {
-                  setComposerDraft(c.prompt);
-                  setTimeout(focusComposer, 30);
-                }}
-              >
-                <i className={"fa-solid " + c.icon} />
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-  } else {
-    body = messages.map((m, i) => (
-      <MessageView
-        key={i}
-        m={m}
-        cursor={streaming && i === messages.length - 1 && m.role === "assistant" && !m.err}
-      />
-    ));
   }
 
   return (

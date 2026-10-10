@@ -1,9 +1,10 @@
 import { useEffect } from "react";
-import { useStore } from "./lib/store";
+import { useStore, getActiveConversation } from "./lib/store";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import ChatView from "./components/ChatView";
 import Composer from "./components/Composer";
+import Hero from "./components/Hero";
 import LogsDrawer from "./components/LogsDrawer";
 import ProvidersModal from "./components/ProvidersModal";
 import ConvSettingsModal from "./components/ConvSettingsModal";
@@ -29,13 +30,23 @@ export default function App() {
     return unsub;
   }, []);
 
+  const conv = useStore(getActiveConversation);
+  const providers = useStore((s) => s.settings.providers);
+  const showHero = providers.length > 0 && (conv?.messages.length ?? 0) === 0;
+
   return (
     <div id="app">
       <Sidebar />
       <main id="main">
-        <Topbar />
-        <ChatView />
-        <Composer />
+        <Topbar bare={showHero} />
+        {showHero ? (
+          <Hero />
+        ) : (
+          <>
+            <ChatView />
+            <Composer />
+          </>
+        )}
       </main>
       <LogsDrawer />
       <ProvidersModal />

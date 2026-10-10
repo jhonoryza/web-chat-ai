@@ -1,7 +1,7 @@
 import { useStore, getActiveConversation } from "../lib/store";
 import { promptDialog } from "./dialogs";
 
-export function Topbar() {
+export function Topbar({ bare = false }: { bare?: boolean }) {
   const mobileNavOpen = useStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useStore((s) => s.setMobileNavOpen);
   const theme = useStore((s) => s.settings.theme);
@@ -31,7 +31,8 @@ export function Topbar() {
       >
         <i className="fa-solid fa-bars" />
       </button>
-      <button className="chat-title" title="Tap to rename" onClick={rename}>
+      <button className="chat-title" title="Tap to rename" onClick={rename}
+        style={bare ? { visibility: "hidden" } : undefined}>
         {conv?.title || "New chat"}
       </button>
       <button
