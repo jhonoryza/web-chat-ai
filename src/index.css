@@ -157,7 +157,7 @@ body{margin:0;background:var(--bg);color:var(--text);
 .dd-trigger:hover:not(:disabled){background:var(--surface);color:var(--text)}
 .dd-trigger:disabled{opacity:.45;cursor:default}
 .dd-trigger .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.dd-trigger .chev{font-size:10px;opacity:.7;flex:0 0 auto}
+.dd-trigger .chev{font-family:"Font Awesome 6 Free";font-weight:900;font-size:10px;opacity:.7;flex:0 0 auto}
 
 .bar-spacer{flex:1}
 .send-btn{border:0;border-radius:50%;width:40px;height:40px;flex:0 0 40px;font-size:16px;cursor:pointer;
