@@ -93,8 +93,13 @@ body{margin:0;background:var(--bg);color:var(--text);
 .tool-btn:hover{background:var(--surface);color:var(--text)}
 .tool-btn.danger{color:#e0655a}
 .tool-btn.danger:hover{background:rgba(224,101,90,.12)}
-.tool-btn.search-on{background:var(--accent);color:#fff}
-.tool-btn.search-on:hover{background:var(--accent);color:#fff;filter:brightness(1.12)}
+.ws-toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);background:transparent;
+  color:var(--muted);border-radius:999px;padding:8px 13px;font:inherit;font-size:13px;font-weight:600;
+  cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+.ws-toggle:hover{color:var(--text);border-color:var(--muted)}
+.ws-toggle i{font-size:14px}
+.ws-toggle.search-on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.ws-toggle.search-on:hover{color:var(--accent);border-color:var(--accent)}
 .steps{margin:0 0 12px;padding-left:20px;font-size:13.5px;line-height:1.7;color:var(--text)}
 .steps a{color:var(--accent)}
 /* ---------- messages ---------- */
@@ -357,7 +362,7 @@ body.log-open #logPanel{transform:none}
           <textarea id="input" rows="1" placeholder="How can I help you today?"></textarea>
           <div class="composer-bar">
             <button id="attachBtn" class="tool-btn" title="Attach image"><i class="fa-solid fa-plus"></i></button>
-            <button id="searchBtn" class="tool-btn" title="Search the web (TinyFish)"><i class="fa-solid fa-globe"></i></button>
+            <button id="searchBtn" class="ws-toggle" title="Search the web (TinyFish)"><i class="fa-solid fa-globe"></i><span>Web search</span></button>
             <select id="provSel" aria-label="Provider"></select>
             <select id="modelSel" aria-label="Model"></select>
             <div class="bar-spacer"></div>
@@ -763,7 +768,7 @@ function buildSearchContext(query,results){
   results.slice(0,5).forEach((r,i)=>{
     c+='\n'+(i+1)+'. '+(r.title||'(tanpa judul)')+'\n   '+(r.url||'')+'\n   '+String(r.snippet||'').slice(0,300)+(r.date?' ('+r.date+')':'');
   });
-  c+='\n\nGunakan hasil di atas jika relevan dengan pertanyaan. Sebutkan sumbernya (nama situs) setiap memakai info dari hasil pencarian.';
+  c+='\n\nPENTING: data di atas adalah hasil pencarian web LIVE dari internet (tanggal '+dateStr+'), bukan dari training data. Gunakan jika relevan dengan pertanyaan. Sebutkan sumbernya (nama situs) setiap memakai info dari hasil pencarian. Jangan bilang kamu tidak bisa browsing — kamu baru saja menerima hasil browsing di atas.';
   return c;
 }
 async function gatherWebContext(text){
@@ -850,11 +855,16 @@ async function sendMessage(){
         const k=await promptTinyFishKey();
         if(k){S.tinyfishKey=k;saveSettings();
           try{searchCtx=await gatherWebContext(text);}
-          catch(e2){logReq({type:'web-search',provider:'TinyFish',model:'search',status:'error',err:String((e2&&e2.message)||e2).slice(0,200)});toast('Web search gagal: '+((e2&&e2.message)||e2));}
+          catch(e2){const m2=String((e2&&e2.message)||e2).slice(0,200);
+            logReq({type:'web-search',provider:'TinyFish',model:'search',status:'error',err:m2});
+            toast('Web search gagal: '+m2);
+            searchCtx='[Pencarian web GAGAL ('+m2+'). Sampaikan ke user dengan jujur bahwa pencarian web gagal dan kamu menjawab tanpa data internet. Jangan mengklaim berhasil browsing.]';}
         }else{S.webSearch=false;saveSettings();renderSearchBtn();}
       }else{
-        logReq({type:'web-search',provider:'TinyFish',model:'search',status:'error',err:String((e&&e.message)||e).slice(0,200)});
+        const m3=String((e&&e.message)||e).slice(0,200);
+        logReq({type:'web-search',provider:'TinyFish',model:'search',status:'error',err:m3});
         toast('Web search gagal, lanjut tanpa search');
+        searchCtx='[Pencarian web GAGAL ('+m3+'). Sampaikan ke user dengan jujur bahwa pencarian web gagal dan kamu menjawab tanpa data internet. Jangan mengklaim berhasil browsing.]';
       }
     }
   }
