@@ -614,6 +614,7 @@ async function sendMessage(){
   const t0=performance.now();
   let usage=null;
   let rawReq='';
+  let rawSample='';
   try{
     const payloadObj=buildPayload(cur,model);
     rawReq=trunc(JSON.stringify(redactForLog(payloadObj),null,2));
@@ -632,7 +633,9 @@ async function sendMessage(){
     for(;;){
       const r=await reader.read();
       if(r.done)break;
-      buf+=dec.decode(r.value,{stream:true});
+      const chunkText=dec.decode(r.value,{stream:true});
+      if(rawSample.length<3000)rawSample+=chunkText;
+      buf+=chunkText;
       const lines=buf.split('\n');buf=lines.pop();
       for(const ln of lines){
         const t=ln.trim();if(!t.startsWith('data:'))continue;
@@ -641,18 +644,20 @@ async function sendMessage(){
         try{
           const j=JSON.parse(d);
           if(j.usage)usage=j.usage;
-          const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;
+          const ch0=j.choices&&j.choices[0];
+          const dl=ch0&&(ch0.delta||ch0.message)||{};
+          const c=dl.content||dl.text;
           if(c){acc+=c;paint();}
         }catch(e){/* partial chunk, ignore */}
       }
     }
     logReq({type:'chat',provider:prov.name,model:model,status:'ok',ms:performance.now()-t0,http:res.status,
       tok:usage?{pt:usage.prompt_tokens||0,ct:usage.completion_tokens||0}:null,
-      req:rawReq,res:trunc(acc)});
+      req:rawReq,res:trunc(acc),raw:trunc(rawSample,3000)});
   }catch(e){
     if(e&&e.name==='AbortError'){
       logReq({type:'chat',provider:prov.name,model:model,status:'stopped',ms:performance.now()-t0,
-        req:rawReq,res:trunc(acc)});
+        req:rawReq,res:trunc(acc),raw:trunc(rawSample,3000)});
       if(!acc)acc='(stopped)';
     }else if(e instanceof TypeError){
       logReq({type:'chat',provider:prov.name,model:model,status:'error',ms:performance.now()-t0,
@@ -732,7 +737,7 @@ function redactForLog(obj){
   }));
 }
 function logReq(e){
-  ReqLog.unshift(Object.assign({ts:Date.now(),type:'chat',provider:'',model:'',status:'ok',ms:0,http:0,tok:null,count:null,req:'',res:'',err:''},e||{}));
+  ReqLog.unshift(Object.assign({ts:Date.now(),type:'chat',provider:'',model:'',status:'ok',ms:0,http:0,tok:null,count:null,req:'',res:'',raw:'',err:''},e||{}));
   if(ReqLog.length>LOG_MAX)ReqLog.length=LOG_MAX;
 }
 function fmtMs(ms){return ms<1000?Math.round(ms)+' ms':(ms/1000).toFixed(1)+' s';}
@@ -749,6 +754,7 @@ function openLog(){
     let h='';
     if(e.req)h+='<div class="log-sec">Raw request</div><pre class="log-pre">'+esc(e.req)+'</pre>';
     if(e.res)h+='<div class="log-sec">Raw response</div><pre class="log-pre">'+esc(e.res)+'</pre>';
+    if(e.raw)h+='<div class="log-sec">Raw stream (sample)</div><pre class="log-pre">'+esc(e.raw)+'</pre>';
     if(e.err)h+='<div class="log-sec">Error</div><pre class="log-pre">'+esc(e.err)+'</pre>';
     return h?'<div class="log-detail">'+h+'</div>':'';
   }
@@ -782,7 +788,7 @@ function openLog(){
     cp.onclick=()=>copyText(JSON.stringify(ReqLog.map(e=>({time:new Date(e.ts).toISOString(),type:e.type,
       provider:e.provider,model:e.model||undefined,status:e.status,latencyMs:Math.round(e.ms),
       http:e.http||undefined,tokens:e.tok||undefined,models:e.count!=null?e.count:undefined,
-      request:e.req||undefined,response:e.res||undefined,error:e.err||undefined})),null,2));
+      request:e.req||undefined,response:e.res||undefined,rawStream:e.raw||undefined,error:e.err||undefined})),null,2));
     const cl=document.createElement('button');cl.className='btn ghost';cl.innerHTML='<i class="fa-solid fa-trash"></i> Clear';
     cl.onclick=()=>{ReqLog.length=0;draw();toast('Log cleared');};
     const dn=document.createElement('button');dn.className='btn primary';dn.textContent='Done';dn.style.flex='2';
