@@ -2,7 +2,7 @@
 
 A privacy-first AI chat client that runs entirely in your browser. Bring your own API key — no backend, no tracking, no data collection.
 
-**Live site:** https://jhonoryza.github.io/web-chat-ai/
+**Live site:** https://deepsea.labkita.my.id/
 
 ## Features
 
