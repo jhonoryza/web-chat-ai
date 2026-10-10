@@ -49,11 +49,11 @@ export function WebSearchModal() {
   const onSaveUrl = () => {
     const v = url.trim().replace(/\/+$/, "");
     if (!v) {
-      toast("Isi URL SearXNG dulu");
+      toast("Isi URL dulu");
       return;
     }
     setSearxngUrl(v);
-    toast("SearXNG URL saved ✓");
+    toast("Search URL saved ✓");
   };
 
   const onRemoveKey = () => {
@@ -89,7 +89,7 @@ export function WebSearchModal() {
               className={"seg-btn" + (searchProvider === "searxng" ? " on" : "")}
               onClick={() => setSearchProvider("searxng")}
             >
-              SearXNG
+              Builtin
             </button>
             <button
               type="button"
@@ -105,7 +105,7 @@ export function WebSearchModal() {
           <>
             <div className="field">
               <Label>
-                SearXNG URL <span style={{ fontWeight: 400 }}>(tanpa API key)</span>
+                Builtin search URL <span style={{ fontWeight: 400 }}>(tanpa API key)</span>
               </Label>
               <div className="pw-wrap">
                 <Input

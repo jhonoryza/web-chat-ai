@@ -97,14 +97,14 @@ export function Composer() {
       toast("Web search OFF");
       return;
     }
-    // TinyFish needs an API key; SearXNG is keyless.
+    // TinyFish needs an API key; builtin search is keyless.
     if (searchProvider === "tinyfish" && !tinyfishKey) {
       const k = await promptTinyFishKey();
       if (!k) return;
       setTinyfishKey(k);
     }
     setWebSearch(true);
-    toast("Web search ON — " + (searchProvider === "tinyfish" ? "TinyFish" : "SearXNG"));
+    toast("Web search ON — " + (searchProvider === "tinyfish" ? "TinyFish" : "Builtin"));
   };
 
   const customModel = async () => {
@@ -158,7 +158,7 @@ export function Composer() {
             </button>
             <button
               className={"ws-toggle" + (webSearch ? " search-on" : "")}
-              title={webSearch ? `Web search ON (${searchProvider === "tinyfish" ? "TinyFish" : "SearXNG"}) — tap to turn off` : "Search the web"}
+              title={webSearch ? `Web search ON (${searchProvider === "tinyfish" ? "TinyFish" : "Builtin"}) — tap to turn off` : "Search the web"}
               onClick={toggleSearch}
             >
               <i className="fa-solid fa-globe" />
